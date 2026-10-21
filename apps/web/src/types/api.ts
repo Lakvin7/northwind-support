@@ -86,6 +86,7 @@ export interface TicketFilters {
   search: string;
   status?: TicketStatus;
   priority?: TicketPriority;
+  slaStatus?: SlaStatus;
   categoryId?: number;
   customerId?: number;
   assignedAgentId?: number;
@@ -102,6 +103,19 @@ export interface CreateTicketPayload {
   customerId: number;
   categoryId: number;
   requestedPriority?: TicketPriority;
+}
+
+export interface TicketEscalation {
+  id: number;
+  ticketId: number;
+  fromPriority: TicketPriority;
+  toPriority: TicketPriority;
+  reason: string;
+  escalatedAtUtc: string;
+  previousDueAtUtc: string | null;
+  newDueAtUtc: string;
+  previousAgentId: number | null;
+  newAgentId: number | null;
 }
 
 export interface Agent {

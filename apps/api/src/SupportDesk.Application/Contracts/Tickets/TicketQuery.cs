@@ -24,6 +24,11 @@ public sealed record TicketQuery
 
     public TicketPriority? Priority { get; init; }
 
+    /// <summary>
+    /// Filters tickets by their calculated SLA status.
+    /// </summary>
+    public SlaStatus? SlaStatus { get; init; }
+
     public int? CategoryId { get; init; }
 
     public int? CustomerId { get; init; }

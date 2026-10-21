@@ -13,6 +13,8 @@ namespace SupportDesk.Domain.Aggregates.Tickets;
 /// </remarks>
 public sealed class Ticket : AggregateRoot
 {
+    private readonly List<TicketEscalation> _escalations = [];
+
     private Ticket()
     {
         // For EF Core.
@@ -44,6 +46,12 @@ public sealed class Ticket : AggregateRoot
     public DateTime? DueAtUtc { get; private set; }
 
     public DateTime? ResolvedAtUtc { get; private set; }
+
+    /// <summary>
+    /// Historical escalation records associated with this ticket.
+    /// Records are appended, never removed or modified.
+    /// </summary>
+    public IReadOnlyCollection<TicketEscalation> Escalations => _escalations;
 
     /// <summary>True while the ticket still needs work from an agent.</summary>
     public bool IsOpen => Status is not (TicketStatus.Resolved or TicketStatus.Closed);
@@ -112,5 +120,49 @@ public sealed class Ticket : AggregateRoot
     {
         AssignedAgentId = agentId;
         UpdatedAtUtc = nowUtc;
+    }
+
+    /// <summary>
+    /// Increases priority by one level, updates the SLA deadline and agent,
+    /// and appends an immutable escalation history record.
+    /// </summary>
+    public void Escalate(
+        DateTime nowUtc,
+        DateTime newDueAtUtc,
+        string reason,
+        int? newAgentId)
+    {
+        if (!IsOpen)
+        {
+            throw new BusinessRuleViolationException(
+                $"Ticket {Reference} cannot be escalated because it is {Status}.");
+        }
+
+        if (Priority == TicketPriority.Critical)
+        {
+            throw new BusinessRuleViolationException(
+                $"Ticket {Reference} is already at Critical priority.");
+        }
+
+        var nextPriority = (TicketPriority)((int)Priority + 1);
+
+        // Construct and validate the history record before changing ticket state.
+        var escalation = new TicketEscalation(
+            Id,
+            Priority,
+            nextPriority,
+            reason,
+            nowUtc,
+            DueAtUtc,
+            newDueAtUtc,
+            AssignedAgentId,
+            newAgentId);
+
+        Priority = nextPriority;
+        DueAtUtc = newDueAtUtc;
+        AssignedAgentId = newAgentId;
+        UpdatedAtUtc = nowUtc;
+
+        _escalations.Add(escalation);
     }
 }

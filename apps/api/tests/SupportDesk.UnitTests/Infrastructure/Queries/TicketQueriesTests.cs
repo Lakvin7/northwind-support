@@ -1,6 +1,7 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using SupportDesk.Application.Contracts.Tickets;
+using SupportDesk.Application.Features.Tickets.Services;
 using SupportDesk.Domain.Aggregates.Categories;
 using SupportDesk.Domain.Aggregates.Customers;
 using SupportDesk.Domain.Aggregates.Tickets;
@@ -64,7 +65,13 @@ public sealed class TicketQueriesTests
         db.AddRange(newTicket, openTicket);
         await db.SaveChangesAsync();
 
-        var queries = new TicketQueries(db, new FixedClock());
+        var queries = new TicketQueries(
+            db,
+            new FixedClock(),
+            new SlaPolicy(new SlaOptions
+            {
+                AtRiskThresholdPercent = 25
+            }));
 
         // Act: request only New tickets.
         var result = await queries.GetPagedAsync(
@@ -127,7 +134,13 @@ public sealed class TicketQueriesTests
         db.AddRange(highTicket, lowTicket);
         await db.SaveChangesAsync();
 
-        var queries = new TicketQueries(db, new FixedClock());
+        var queries = new TicketQueries(
+            db,
+            new FixedClock(),
+            new SlaPolicy(new SlaOptions
+    {
+        AtRiskThresholdPercent = 25
+    }));
 
         var result = await queries.GetPagedAsync(
             new TicketQuery
@@ -195,7 +208,13 @@ public sealed class TicketQueriesTests
         db.AddRange(contosoTicket, fabrikamTicket);
         await db.SaveChangesAsync();
 
-        var queries = new TicketQueries(db, new FixedClock());
+        var queries = new TicketQueries(
+            db,
+            new FixedClock(),
+            new SlaPolicy(new SlaOptions
+    {
+        AtRiskThresholdPercent = 25
+    }));
 
         var result = await queries.GetPagedAsync(
             new TicketQuery
@@ -261,7 +280,13 @@ public sealed class TicketQueriesTests
         db.AddRange(generalTicket, technicalTicket);
         await db.SaveChangesAsync();
 
-        var queries = new TicketQueries(db, new FixedClock());
+        var queries = new TicketQueries(
+            db,
+            new FixedClock(),
+            new SlaPolicy(new SlaOptions
+    {
+        AtRiskThresholdPercent = 25
+    }));
 
         var result = await queries.GetPagedAsync(
             new TicketQuery
@@ -330,7 +355,13 @@ public sealed class TicketQueriesTests
         db.AddRange(unassignedTicket, assignedTicket);
         await db.SaveChangesAsync();
 
-        var queries = new TicketQueries(db, new FixedClock());
+        var queries = new TicketQueries(
+            db,
+            new FixedClock(),
+            new SlaPolicy(new SlaOptions
+    {
+        AtRiskThresholdPercent = 25
+    }));
 
         var result = await queries.GetPagedAsync(
             new TicketQuery
@@ -406,7 +437,13 @@ public sealed class TicketQueriesTests
         db.AddRange(alexTicket, samTicket);
         await db.SaveChangesAsync();
 
-        var queries = new TicketQueries(db, new FixedClock());
+        var queries = new TicketQueries(
+    db,
+    new FixedClock(),
+    new SlaPolicy(new SlaOptions
+    {
+        AtRiskThresholdPercent = 25
+    }));
 
         var result = await queries.GetPagedAsync(
             new TicketQuery
@@ -480,7 +517,13 @@ public sealed class TicketQueriesTests
         db.AddRange(matchingTicket, otherTicket);
         await db.SaveChangesAsync();
 
-        var queries = new TicketQueries(db, new FixedClock());
+        var queries = new TicketQueries(
+    db,
+    new FixedClock(),
+    new SlaPolicy(new SlaOptions
+    {
+        AtRiskThresholdPercent = 25
+    }));
 
         var result = await queries.GetPagedAsync(
             new TicketQuery { Search = search },
@@ -548,7 +591,13 @@ public sealed class TicketQueriesTests
         db.AddRange(matchingTicket, wrongPriority, wrongStatus);
         await db.SaveChangesAsync();
 
-        var queries = new TicketQueries(db, new FixedClock());
+        var queries = new TicketQueries(
+    db,
+    new FixedClock(),
+    new SlaPolicy(new SlaOptions
+    {
+        AtRiskThresholdPercent = 25
+    }));
 
         var result = await queries.GetPagedAsync(
             new TicketQuery
@@ -617,7 +666,13 @@ public sealed class TicketQueriesTests
         db.Add(excludedTicket);
         await db.SaveChangesAsync();
 
-        var queries = new TicketQueries(db, new FixedClock());
+        var queries = new TicketQueries(
+    db,
+    new FixedClock(),
+    new SlaPolicy(new SlaOptions
+    {
+        AtRiskThresholdPercent = 25
+    }));
 
         var result = await queries.GetPagedAsync(
             new TicketQuery
@@ -639,11 +694,571 @@ public sealed class TicketQueriesTests
         Assert.Equal("TCK-PAGE-004", result.Items[1].Reference);
     }
 
+    [Fact]
+    public async Task GetEscalationsAsync_ExistingTicketWithoutHistory_ReturnsEmptyList()
+    {
+        var (connection, db) = await CreateDatabaseAsync();
+        await using var disposableConnection = connection;
+        await using var disposableDb = db;
+
+        var nowUtc = FixedClock.DefaultNow;
+
+        var customer = new Customer(
+            "Escalation Test Customer",
+            "escalation@example.com",
+            null,
+            CustomerTier.Standard,
+            nowUtc);
+
+        var category = new Category(
+            "Escalation Test",
+            requiresSpecialist: false,
+            forcesCriticalPriority: false);
+
+        db.AddRange(customer, category);
+        await db.SaveChangesAsync();
+
+        var ticket = Ticket.Raise(
+            "TCK-HISTORY-001",
+            "History retrieval test",
+            "Verify empty escalation history.",
+            customer.Id,
+            category.Id,
+            TicketPriority.Medium,
+            nowUtc);
+
+        db.Add(ticket);
+        await db.SaveChangesAsync();
+
+        var queries = new TicketQueries(
+    db,
+    new FixedClock(),
+    new SlaPolicy(new SlaOptions
+    {
+        AtRiskThresholdPercent = 25
+    }));
+
+        var history = await queries.GetEscalationsAsync(
+            ticket.Id,
+            CancellationToken.None);
+
+        Assert.NotNull(history);
+        Assert.Empty(history);
+    }
+
+    [Fact]
+    public async Task GetEscalationsAsync_NonexistentTicket_ReturnsNull()
+    {
+        var (connection, db) = await CreateDatabaseAsync();
+        await using var disposableConnection = connection;
+        await using var disposableDb = db;
+
+        var queries = new TicketQueries(
+    db,
+    new FixedClock(),
+    new SlaPolicy(new SlaOptions
+    {
+        AtRiskThresholdPercent = 25
+    }));
+
+        var history = await queries.GetEscalationsAsync(
+            ticketId: 99999,
+            ct: CancellationToken.None);
+
+        Assert.Null(history);
+    }
+
+    [Fact]
+    public async Task GetEscalationsAsync_MultipleEscalations_ReturnsChronologicalHistory()
+    {
+        var (connection, db) = await CreateDatabaseAsync();
+        await using var disposableConnection = connection;
+        await using var disposableDb = db;
+
+        var now = FixedClock.DefaultNow;
+
+        var customer = new Customer(
+            "History Test Customer",
+            "history@example.com",
+            null,
+            CustomerTier.Standard,
+            now);
+
+        var category = new Category(
+            "History Test",
+            requiresSpecialist: false,
+            forcesCriticalPriority: false);
+
+        db.AddRange(customer, category);
+        await db.SaveChangesAsync();
+
+        var ticket = Ticket.Raise(
+            "TCK-HISTORY-002",
+            "Multiple escalation test",
+            "Verify escalation history ordering.",
+            customer.Id,
+            category.Id,
+            TicketPriority.Low,
+            now);
+
+        db.Add(ticket);
+        await db.SaveChangesAsync();
+
+        var firstEscalationAt = now.AddHours(1);
+        var secondEscalationAt = now.AddHours(2);
+
+        ticket.Escalate(
+            firstEscalationAt,
+            firstEscalationAt.AddHours(24),
+            "First escalation due to increasing urgency.",
+            null);
+
+        ticket.Escalate(
+            secondEscalationAt,
+            secondEscalationAt.AddHours(8),
+            "Second escalation due to unresolved impact.",
+            null);
+
+        await db.SaveChangesAsync();
+
+        var queries = new TicketQueries(
+    db,
+    new FixedClock(),
+    new SlaPolicy(new SlaOptions
+    {
+        AtRiskThresholdPercent = 25
+    }));
+
+        var history = await queries.GetEscalationsAsync(
+            ticket.Id,
+            CancellationToken.None);
+
+        Assert.NotNull(history);
+        Assert.Equal(2, history.Count);
+
+        Assert.Equal(TicketPriority.Low, history[0].FromPriority);
+        Assert.Equal(TicketPriority.Medium, history[0].ToPriority);
+        Assert.Equal(firstEscalationAt, history[0].EscalatedAtUtc);
+
+        Assert.Equal(TicketPriority.Medium, history[1].FromPriority);
+        Assert.Equal(TicketPriority.High, history[1].ToPriority);
+        Assert.Equal(secondEscalationAt, history[1].EscalatedAtUtc);
+
+        Assert.All(history, escalation =>
+            Assert.Equal(ticket.Id, escalation.TicketId));
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_WhenSlaIsNotApplicable_ReturnsOnlyTicketsWithoutDeadline()
+    {
+        var (connection, db) = await CreateDatabaseAsync();
+        await using var disposableConnection = connection;
+        await using var disposableDb = db;
+
+        var now = FixedClock.DefaultNow;
+
+        var customer = new Customer(
+            "SLA Test Customer",
+            "sla@example.com",
+            null,
+            CustomerTier.Standard,
+            now);
+
+        var category = new Category(
+            "SLA Test",
+            requiresSpecialist: false,
+            forcesCriticalPriority: false);
+
+        db.AddRange(customer, category);
+        await db.SaveChangesAsync();
+
+        var withoutSla = Ticket.Raise(
+            "TCK-SLA-001",
+            "Ticket without SLA",
+            "This ticket has no deadline.",
+            customer.Id,
+            category.Id,
+            TicketPriority.Medium,
+            now);
+
+        var withSla = Ticket.Raise(
+            "TCK-SLA-002",
+            "Ticket with SLA",
+            "This ticket has a deadline.",
+            customer.Id,
+            category.Id,
+            TicketPriority.Medium,
+            now,
+            now.AddHours(24));
+
+        db.AddRange(withoutSla, withSla);
+        await db.SaveChangesAsync();
+
+        var queries = new TicketQueries(
+            db,
+            new FixedClock(),
+            new SlaPolicy(new SlaOptions
+            {
+                AtRiskThresholdPercent = 25
+            }));
+
+        var result = await queries.GetPagedAsync(
+            new TicketQuery
+            {
+                SlaStatus = SlaStatus.NotApplicable
+            },
+            CancellationToken.None);
+
+        Assert.Equal(1, result.TotalCount);
+
+        var ticket = Assert.Single(result.Items);
+        Assert.Equal(withoutSla.Id, ticket.Id);
+        Assert.Equal(SlaStatus.NotApplicable, ticket.SlaStatus);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_WhenSlaIsMet_ReturnsOnlyTicketsResolvedOnTime()
+    {
+        var (connection, db) = await CreateDatabaseAsync();
+        await using var disposableConnection = connection;
+        await using var disposableDb = db;
+
+        var now = FixedClock.DefaultNow;
+
+        var customer = new Customer(
+            "SLA Met Customer",
+            "slamet@example.com",
+            null,
+            CustomerTier.Standard,
+            now);
+
+        var category = new Category(
+            "SLA Met Test",
+            requiresSpecialist: false,
+            forcesCriticalPriority: false);
+
+        db.AddRange(customer, category);
+        await db.SaveChangesAsync();
+
+        var onTimeTicket = Ticket.Raise(
+            "TCK-SLA-MET-001",
+            "Resolved on time",
+            "Ticket resolved before its SLA deadline.",
+            customer.Id,
+            category.Id,
+            TicketPriority.Medium,
+            now.AddHours(-10),
+            now.AddHours(-2));
+
+        onTimeTicket.ChangeStatus(
+            TicketStatus.Resolved,
+            now.AddHours(-3));
+
+        var lateTicket = Ticket.Raise(
+            "TCK-SLA-MET-002",
+            "Resolved late",
+            "Ticket resolved after its SLA deadline.",
+            customer.Id,
+            category.Id,
+            TicketPriority.Medium,
+            now.AddHours(-10),
+            now.AddHours(-4));
+
+        lateTicket.ChangeStatus(
+            TicketStatus.Resolved,
+            now.AddHours(-2));
+
+        db.AddRange(onTimeTicket, lateTicket);
+        await db.SaveChangesAsync();
+
+        var queries = new TicketQueries(
+            db,
+            new FixedClock(),
+            new SlaPolicy(new SlaOptions
+            {
+                AtRiskThresholdPercent = 25
+            }));
+
+        var result = await queries.GetPagedAsync(
+            new TicketQuery
+            {
+                SlaStatus = SlaStatus.Met
+            },
+            CancellationToken.None);
+
+        Assert.Equal(1, result.TotalCount);
+
+        var ticket = Assert.Single(result.Items);
+        Assert.Equal(onTimeTicket.Id, ticket.Id);
+        Assert.Equal(SlaStatus.Met, ticket.SlaStatus);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_WhenSlaIsBreached_ReturnsOnlyOverdueOrLateTickets()
+    {
+        var (connection, db) = await CreateDatabaseAsync();
+        await using var disposableConnection = connection;
+        await using var disposableDb = db;
+
+        var now = FixedClock.DefaultNow;
+
+        var customer = new Customer(
+            "SLA Breach Customer",
+            "slabreach@example.com",
+            null,
+            CustomerTier.Standard,
+            now);
+
+        var category = new Category(
+            "SLA Breach Test",
+            requiresSpecialist: false,
+            forcesCriticalPriority: false);
+
+        db.AddRange(customer, category);
+        await db.SaveChangesAsync();
+
+        var overdue = Ticket.Raise(
+            "TCK-BREACH-001",
+            "Overdue unresolved ticket",
+            "This ticket missed its SLA deadline.",
+            customer.Id,
+            category.Id,
+            TicketPriority.Medium,
+            now.AddHours(-10),
+            now.AddHours(-2));
+
+        var resolvedLate = Ticket.Raise(
+            "TCK-BREACH-002",
+            "Resolved late",
+            "This ticket was resolved after its deadline.",
+            customer.Id,
+            category.Id,
+            TicketPriority.Medium,
+            now.AddHours(-10),
+            now.AddHours(-4));
+
+        resolvedLate.ChangeStatus(
+            TicketStatus.Resolved,
+            now.AddHours(-2));
+
+        var withinSla = Ticket.Raise(
+            "TCK-BREACH-003",
+            "Within SLA",
+            "This ticket still has time remaining.",
+            customer.Id,
+            category.Id,
+            TicketPriority.Medium,
+            now.AddHours(-1),
+            now.AddHours(5));
+
+        db.AddRange(overdue, resolvedLate, withinSla);
+        await db.SaveChangesAsync();
+
+        var queries = new TicketQueries(
+            db,
+            new FixedClock(),
+            new SlaPolicy(new SlaOptions
+            {
+                AtRiskThresholdPercent = 25
+            }));
+
+        var result = await queries.GetPagedAsync(
+            new TicketQuery
+            {
+                SlaStatus = SlaStatus.Breached,
+                Page = 1,
+                PageSize = 1
+            },
+            CancellationToken.None);
+
+        // Both breached tickets count, even though only one fits on page 1.
+        Assert.Equal(2, result.TotalCount);
+        Assert.Single(result.Items);
+        Assert.Equal(SlaStatus.Breached, result.Items[0].SlaStatus);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_WhenFilteringAtRisk_ExecutesDatabaseQuery()
+    {
+        var (connection, db) = await CreateDatabaseAsync();
+        await using var disposableConnection = connection;
+        await using var disposableDb = db;
+
+        var queries = new TicketQueries(
+            db,
+            new FixedClock(),
+            new SlaPolicy(new SlaOptions
+            {
+                AtRiskThresholdPercent = 25
+            }));
+
+        var result = await queries.GetPagedAsync(
+            new TicketQuery
+            {
+                SlaStatus = SlaStatus.AtRisk
+            },
+            CancellationToken.None);
+
+        Assert.Empty(result.Items);
+        Assert.Equal(0, result.TotalCount);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_WhenAtRisk_ReturnsTicketInsideThreshold()
+    {
+        var (connection, db) = await CreateDatabaseAsync();
+        await using var disposableConnection = connection;
+        await using var disposableDb = db;
+
+        var now = FixedClock.DefaultNow;
+
+        var customer = new Customer(
+            "SLA Risk Customer",
+            "slarisk@example.com",
+            null,
+            CustomerTier.Standard,
+            now);
+
+        var category = new Category(
+            "SLA Risk Test",
+            requiresSpecialist: false,
+            forcesCriticalPriority: false);
+
+        db.AddRange(customer, category);
+        await db.SaveChangesAsync();
+
+        // 8-hour SLA window, with only 1 hour remaining.
+        // 25% of 8 hours = 2 hours, so this ticket is AtRisk.
+        var atRisk = Ticket.Raise(
+            "TCK-RISK-001",
+            "Approaching SLA deadline",
+            "Ticket has one hour remaining.",
+            customer.Id,
+            category.Id,
+            TicketPriority.High,
+            now.AddHours(-7),
+            now.AddHours(1));
+
+        // 8-hour SLA window, with 6 hours remaining.
+        // This ticket is WithinSla, not AtRisk.
+        var withinSla = Ticket.Raise(
+            "TCK-RISK-002",
+            "Plenty of SLA time",
+            "Ticket has six hours remaining.",
+            customer.Id,
+            category.Id,
+            TicketPriority.High,
+            now.AddHours(-2),
+            now.AddHours(6));
+
+        db.AddRange(atRisk, withinSla);
+        await db.SaveChangesAsync();
+
+        var queries = new TicketQueries(
+            db,
+            new FixedClock(),
+            new SlaPolicy(new SlaOptions
+            {
+                AtRiskThresholdPercent = 25
+            }));
+
+        var result = await queries.GetPagedAsync(
+            new TicketQuery
+            {
+                SlaStatus = SlaStatus.AtRisk
+            },
+            CancellationToken.None);
+
+        Assert.Equal(1, result.TotalCount);
+
+        var ticket = Assert.Single(result.Items);
+        Assert.Equal(atRisk.Id, ticket.Id);
+        Assert.Equal(SlaStatus.AtRisk, ticket.SlaStatus);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_WhenWithinSla_ExcludesExactAtRiskBoundary()
+    {
+        var (connection, db) = await CreateDatabaseAsync();
+        await using var disposableConnection = connection;
+        await using var disposableDb = db;
+
+        var now = FixedClock.DefaultNow;
+
+        var customer = new Customer(
+            "SLA Boundary Customer",
+            "slaboundary@example.com",
+            null,
+            CustomerTier.Standard,
+            now);
+
+        var category = new Category(
+            "SLA Boundary Test",
+            requiresSpecialist: false,
+            forcesCriticalPriority: false);
+
+        db.AddRange(customer, category);
+        await db.SaveChangesAsync();
+
+        // Eight-hour window, six hours remaining: WithinSla.
+        var withinSla = Ticket.Raise(
+            "TCK-WITHIN-001",
+            "Within SLA",
+            "Ticket has six hours remaining.",
+            customer.Id,
+            category.Id,
+            TicketPriority.High,
+            now.AddHours(-2),
+            now.AddHours(6));
+
+        // Eight-hour window, exactly two hours remaining:
+        // 25% threshold reached, so this must be AtRisk.
+        var atBoundary = Ticket.Raise(
+            "TCK-WITHIN-002",
+            "At risk boundary",
+            "Ticket has exactly 25 percent remaining.",
+            customer.Id,
+            category.Id,
+            TicketPriority.High,
+            now.AddHours(-6),
+            now.AddHours(2));
+
+        db.AddRange(withinSla, atBoundary);
+        await db.SaveChangesAsync();
+
+        var queries = new TicketQueries(
+            db,
+            new FixedClock(),
+            new SlaPolicy(new SlaOptions
+            {
+                AtRiskThresholdPercent = 25
+            }));
+
+        var result = await queries.GetPagedAsync(
+            new TicketQuery
+            {
+                SlaStatus = SlaStatus.WithinSla
+            },
+            CancellationToken.None);
+
+        Assert.Equal(1, result.TotalCount);
+
+        var ticket = Assert.Single(result.Items);
+        Assert.Equal(withinSla.Id, ticket.Id);
+        Assert.Equal(SlaStatus.WithinSla, ticket.SlaStatus);
+    }
+
     private static async Task<(SqliteConnection Connection, SupportDbContext Db)>
         CreateDatabaseAsync()
     {
         var connection = new SqliteConnection("Data Source=:memory:");
         await connection.OpenAsync();
+
+        // SQLite does not provide SQL Server's LEN function.
+        // Register it so the escalation reason constraint works in tests.
+        connection.CreateFunction<string, int>(
+            "LEN",
+            value => value?.TrimEnd(' ').Length ?? 0);
 
         var options = new DbContextOptionsBuilder<SupportDbContext>()
             .UseSqlite(connection)

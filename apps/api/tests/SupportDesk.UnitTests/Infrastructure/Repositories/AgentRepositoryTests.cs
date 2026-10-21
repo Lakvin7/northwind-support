@@ -14,6 +14,9 @@ public sealed class AgentRepositoryTests
     public async Task GetActiveAgentsAsync_ExcludesInactiveAgentsAndLoadsSpecializations()
     {
         var connection = new SqliteConnection("Data Source=:memory:");
+        connection.CreateFunction<string, int>(
+            "LEN",
+            value => value?.TrimEnd(' ').Length ?? 0);
         await connection.OpenAsync();
         await using var disposableConnection = connection;
 

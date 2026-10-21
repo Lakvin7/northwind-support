@@ -13,7 +13,8 @@ public sealed class AgentAssignmentService(
     public async Task<AgentAssignmentResult> SelectAgentAsync(
         int categoryId,
         bool requiresSpecialist,
-        CancellationToken ct)
+        CancellationToken ct,
+        int? currentAgentId = null)
     {
         var activeAgents = await agents.GetActiveAgentsAsync(ct);
         var openCounts = await tickets.GetOpenTicketCountsByAgentAsync(ct);
@@ -28,6 +29,7 @@ public sealed class AgentAssignmentService(
                 OpenCount = openCounts.GetValueOrDefault(agent.Id)
             })
             .Where(candidate =>
+                candidate.Agent.Id == currentAgentId ||
                 candidate.OpenCount < candidate.Agent.MaxOpenTickets)
             .OrderBy(candidate => candidate.OpenCount)
             .ThenBy(candidate => candidate.Agent.Id)
@@ -42,7 +44,9 @@ public sealed class AgentAssignmentService(
 
         return new AgentAssignmentResult(
             selected.Agent.Id,
-            $"Assigned to the eligible agent with the fewest open tickets ({selected.OpenCount}).");
+            selected.Agent.Id == currentAgentId
+                ? "Retained the current eligible agent after workload evaluation."
+                : $"Assigned to the eligible agent with the fewest open tickets ({selected.OpenCount}).");
     }
 }
 

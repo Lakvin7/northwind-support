@@ -4,12 +4,18 @@ namespace SupportDesk.Application.Features.Tickets.Services;
 
 public sealed class SlaPolicy
 {
+
     private readonly SlaOptions _options;
 
     public SlaPolicy(SlaOptions options)
     {
         _options = options;
     }
+
+    /// <summary>
+    /// Percentage of the SLA window remaining at which a ticket becomes AtRisk.
+    /// </summary>
+    public double AtRiskThresholdPercent => _options.AtRiskThresholdPercent;
 
     public DateTime CalculateDueAtUtc(
         TicketPriority priority,

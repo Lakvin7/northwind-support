@@ -54,6 +54,11 @@ public sealed class AgentAssignmentServiceTests
         CreateDatabaseAsync()
     {
         var connection = new SqliteConnection("Data Source=:memory:");
+        // Provide SQL Server's LEN function for SQLite-based tests.
+        connection.CreateFunction<string, int>(
+            "LEN",
+            value => value?.TrimEnd(' ').Length ?? 0);
+
         await connection.OpenAsync();
 
         var options = new DbContextOptionsBuilder<SupportDbContext>()
@@ -231,5 +236,35 @@ public sealed class AgentAssignmentServiceTests
 
         Assert.Null(result.AgentId);
         Assert.NotEmpty(result.Reason);
+    }
+
+    [Fact]
+    public async Task SelectAgentAsync_CurrentAgentAtCapacity_CanRetainTicket()
+    {
+        var (connection, db) = await CreateDatabaseAsync();
+        await using var disposableConnection = connection;
+        await using var disposableDb = db;
+
+        var alex = CreateAgent("Alex", capacity: 1);
+
+        db.Add(alex);
+        await db.SaveChangesAsync();
+
+        // Alex already owns one open ticket and is at full capacity.
+        var service = CreateService(
+            new[] { alex },
+            new Dictionary<int, int>
+            {
+                [alex.Id] = 1
+            });
+
+        var result = await service.SelectAgentAsync(
+            categoryId: 3,
+            requiresSpecialist: false,
+            ct: CancellationToken.None,
+            currentAgentId: alex.Id);
+
+        Assert.Equal(alex.Id, result.AgentId);
+        Assert.Contains("Retained", result.Reason);
     }
 }

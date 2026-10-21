@@ -161,6 +161,11 @@ public class RaiseTicketCommandHandlerTests
         using var connection = new Microsoft.Data.Sqlite.SqliteConnection(
             "Data Source=:memory:");
 
+        // Make SQL Server's LEN function available to SQLite tests.
+        connection.CreateFunction<string, int>(
+            "LEN",
+            value => value?.TrimEnd(' ').Length ?? 0);
+
         await connection.OpenAsync();
 
         var options = new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<

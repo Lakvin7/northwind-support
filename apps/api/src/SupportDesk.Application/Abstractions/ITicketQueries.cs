@@ -14,6 +14,14 @@ public interface ITicketQueries
 
     Task<TicketDetailDto?> GetDetailAsync(int id, CancellationToken ct);
 
+    /// <summary>
+    /// Returns a ticket's escalation history in chronological order.
+    /// Returns null when the ticket does not exist.
+    /// </summary>
+    Task<IReadOnlyList<TicketEscalationDto>?> GetEscalationsAsync(
+        int ticketId,
+        CancellationToken ct);
+
     /// <summary>A customer's tickets, newest first.</summary>
     Task<IReadOnlyList<TicketListItemDto>> GetForCustomerAsync(int customerId, CancellationToken ct);
 }

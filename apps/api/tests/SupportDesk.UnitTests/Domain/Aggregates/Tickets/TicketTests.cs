@@ -123,4 +123,132 @@ public class TicketTests
         Assert.Equal(TicketStatus.New, ticket.Status);
         Assert.Null(ticket.AssignedAgentId);
     }
+
+    [Theory]
+    [InlineData(TicketPriority.Low, TicketPriority.Medium)]
+    [InlineData(TicketPriority.Medium, TicketPriority.High)]
+    [InlineData(TicketPriority.High, TicketPriority.Critical)]
+    public void Escalate_IncreasesPriorityByExactlyOneLevel(
+        TicketPriority initialPriority,
+        TicketPriority expectedPriority)
+    {
+        var nowUtc = FixedClock.DefaultNow;
+        var escalatedAtUtc = nowUtc.AddHours(3);
+        var newDueAtUtc = escalatedAtUtc.AddHours(8);
+
+        var ticket = Ticket.Raise(
+            "TCK-ESC-001",
+            "Escalation test",
+            "Testing priority escalation.",
+            1,
+            3,
+            initialPriority,
+            nowUtc,
+            nowUtc.AddHours(24));
+
+        ticket.Escalate(
+            escalatedAtUtc,
+            newDueAtUtc,
+            "Customer issue requires urgent attention.",
+            newAgentId: 2);
+
+        Assert.Equal(expectedPriority, ticket.Priority);
+        Assert.Equal(newDueAtUtc, ticket.DueAtUtc);
+        Assert.Equal(escalatedAtUtc, ticket.UpdatedAtUtc);
+
+        var history = Assert.Single(ticket.Escalations);
+
+        Assert.Equal(initialPriority, history.FromPriority);
+        Assert.Equal(expectedPriority, history.ToPriority);
+        Assert.Equal(
+            "Customer issue requires urgent attention.",
+            history.Reason);
+        Assert.Equal(escalatedAtUtc, history.EscalatedAtUtc);
+        Assert.Equal(nowUtc.AddHours(24), history.PreviousDueAtUtc);
+        Assert.Equal(newDueAtUtc, history.NewDueAtUtc);
+        Assert.Null(history.PreviousAgentId);
+        Assert.Equal(2, history.NewAgentId);
+        Assert.Equal(2, ticket.AssignedAgentId);
+        Assert.Equal(nowUtc, ticket.CreatedAtUtc);
+    }
+
+    [Theory]
+    [InlineData(TicketPriority.Critical, TicketStatus.New)]
+    [InlineData(TicketPriority.Medium, TicketStatus.Resolved)]
+    [InlineData(TicketPriority.High, TicketStatus.Closed)]
+
+    public void Escalate_WhenNotAllowed_ThrowsWithoutChangingTicket(
+        TicketPriority priority,
+        TicketStatus status)
+    {
+        var createdAtUtc = FixedClock.DefaultNow;
+        var escalatedAtUtc = createdAtUtc.AddHours(3);
+        var originalDueAtUtc = createdAtUtc.AddHours(24);
+
+        var ticket = Ticket.Raise(
+            "TCK-ESC-002",
+            "Escalation rejection test",
+            "Testing invalid escalation attempts.",
+            1,
+            3,
+            priority,
+            createdAtUtc,
+            originalDueAtUtc);
+
+        if (status != TicketStatus.New)
+        {
+            ticket.ChangeStatus(status, createdAtUtc);
+        }
+
+        var originalUpdatedAtUtc = ticket.UpdatedAtUtc;
+
+        Assert.Throws<BusinessRuleViolationException>(
+            () => ticket.Escalate(
+                escalatedAtUtc,
+                escalatedAtUtc.AddHours(4),
+                "Customer issue required urgent attention.",
+                newAgentId: 2));
+
+        Assert.Equal(priority, ticket.Priority);
+        Assert.Equal(status, ticket.Status);
+        Assert.Equal(originalDueAtUtc, ticket.DueAtUtc);
+        Assert.Equal(originalUpdatedAtUtc, ticket.UpdatedAtUtc);
+        Assert.Empty(ticket.Escalations);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("    ")]
+    [InlineData("abcd")]
+    public void Escalate_WithInvalidReason_DoesNotModifyTicket(string reason)
+    {
+        var nowUtc = FixedClock.DefaultNow;
+        var escalatedAtUtc = nowUtc.AddHours(3);
+        var originalDueAtUtc = nowUtc.AddHours(24);
+
+        var ticket = Ticket.Raise(
+            "TCK-ESC-003",
+            "Invalid reason test",
+            "Testing escalation reason validation.",
+            1,
+            3,
+            TicketPriority.Medium,
+            nowUtc,
+            originalDueAtUtc);
+
+        ticket.AssignTo(1, nowUtc);
+
+        Assert.Throws<ArgumentException>(
+            () => ticket.Escalate(
+                escalatedAtUtc,
+                escalatedAtUtc.AddHours(8),
+                reason,
+                newAgentId: 2));
+
+        Assert.Equal(TicketPriority.Medium, ticket.Priority);
+        Assert.Equal(originalDueAtUtc, ticket.DueAtUtc);
+        Assert.Equal(1, ticket.AssignedAgentId);
+        Assert.Equal(nowUtc, ticket.UpdatedAtUtc);
+        Assert.Empty(ticket.Escalations);
+    }
 }
