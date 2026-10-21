@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using SupportDesk.Application;
+using SupportDesk.Application.Features.Tickets.Services;
 using SupportDesk.Infrastructure;
 using SupportDesk.Presentation.Extensions;
 using SupportDesk.Presentation.Filters;
@@ -26,6 +27,31 @@ builder.Services.AddCors(options => options.AddPolicy(
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services
+    .AddOptions<SlaOptions>()
+    .Bind(builder.Configuration.GetSection(SlaOptions.SectionName))
+    .Validate(options =>
+        Enum.GetNames<SupportDesk.Domain.Aggregates.Tickets.TicketPriority>()
+            .All(priority =>
+                options.BaseWindowHours.TryGetValue(priority, out var hours)
+                && double.IsFinite(hours)
+                && hours > 0)
+        && double.IsFinite(options.PremiumCustomerMultiplier)
+        && options.PremiumCustomerMultiplier > 0
+        && options.PremiumCustomerMultiplier <= 1
+        && double.IsFinite(options.MinimumWindowHours)
+        && options.MinimumWindowHours > 0
+        && double.IsFinite(options.AtRiskThresholdPercent)
+        && options.AtRiskThresholdPercent >= 0
+        && options.AtRiskThresholdPercent <= 100,
+        "Invalid SLA configuration. Check priority windows, multiplier, minimum window and at-risk threshold.")
+    .ValidateOnStart();
+
+builder.Services.AddScoped(sp =>
+    new SlaPolicy(
+        sp.GetRequiredService<
+            Microsoft.Extensions.Options.IOptions<SlaOptions>>().Value));
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
