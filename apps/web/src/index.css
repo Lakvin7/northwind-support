@@ -76,6 +76,18 @@ a {
   font-weight: 600;
 }
 
+.app__session {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.app__session-name {
+  color: var(--colour-muted);
+  font-size: 0.9rem;
+}
+
 .app__main {
   max-width: 1200px;
   margin: 0 auto;
@@ -340,6 +352,18 @@ textarea[aria-invalid='true'] {
 @media (max-width: 900px) {
   .detail-layout {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .app__header {
+    flex-wrap: wrap;
+  }
+
+  .app__session {
+    width: 100%;
+    margin-left: 0;
+    justify-content: space-between;
   }
 }
 

@@ -17,6 +17,7 @@ public sealed class TicketEscalationTests
             fromPriority: TicketPriority.Medium,
             toPriority: TicketPriority.High,
             reason: "  Customer issue requires urgent attention.  ",
+            escalatedBy: "  Alex Turner  ",
             escalatedAtUtc: escalatedAtUtc,
             previousDueAtUtc: previousDueAtUtc,
             newDueAtUtc: newDueAtUtc,
@@ -29,6 +30,7 @@ public sealed class TicketEscalationTests
         Assert.Equal(
             "Customer issue requires urgent attention.",
             escalation.Reason);
+        Assert.Equal("Alex Turner", escalation.EscalatedBy);
         Assert.Equal(escalatedAtUtc, escalation.EscalatedAtUtc);
         Assert.Equal(previousDueAtUtc, escalation.PreviousDueAtUtc);
         Assert.Equal(newDueAtUtc, escalation.NewDueAtUtc);
@@ -71,6 +73,7 @@ public sealed class TicketEscalationTests
             fromPriority: TicketPriority.Low,
             toPriority: TicketPriority.Medium,
             reason: reason,
+            escalatedBy: "Alex Turner",
             escalatedAtUtc: nowUtc,
             previousDueAtUtc: nowUtc.AddHours(72),
             newDueAtUtc: nowUtc.AddHours(24),

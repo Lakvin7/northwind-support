@@ -47,6 +47,7 @@ public sealed class EscalateTicketCommandHandlerTests
         Assert.Equal(nowUtc.AddHours(21), history.PreviousDueAtUtc);
         Assert.Equal(nowUtc.AddHours(8), history.NewDueAtUtc);
         Assert.Equal(nowUtc, history.EscalatedAtUtc);
+        Assert.Equal("Alex Turner", history.EscalatedBy);
 
         Assert.NotNull(result);
         context.VerifySaved(Times.Once());

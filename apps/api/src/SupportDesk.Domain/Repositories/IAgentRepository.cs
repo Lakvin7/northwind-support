@@ -9,6 +9,8 @@ public interface IAgentRepository
 {
     Task<Agent?> GetByIdAsync(int id, CancellationToken ct);
 
+    Task<Agent?> GetByEmailAsync(string email, CancellationToken ct);
+
     /// <summary>
     /// Retrieves active agents with their specializations for automatic assignment.
     /// </summary>

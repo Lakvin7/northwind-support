@@ -126,6 +126,7 @@ public sealed class TicketQueries(
                 e.FromPriority,
                 e.ToPriority,
                 e.Reason,
+                e.EscalatedBy,
                 e.EscalatedAtUtc,
                 e.PreviousDueAtUtc,
                 e.NewDueAtUtc,

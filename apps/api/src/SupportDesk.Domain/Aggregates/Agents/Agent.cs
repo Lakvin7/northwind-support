@@ -31,6 +31,9 @@ public sealed class Agent : AggregateRoot
 
     public string Email { get; private set; } = string.Empty;
 
+    /// <summary>The opaque, salted password hash used for agent authentication.</summary>
+    public string? PasswordHash { get; private set; }
+
     /// <summary>Inactive agents keep their history but take no new work.</summary>
     public bool IsActive { get; private set; }
 
@@ -55,4 +58,21 @@ public sealed class Agent : AggregateRoot
 
     /// <summary>Stops the agent from taking new work. Their history is kept.</summary>
     public void Deactivate() => IsActive = false;
+
+    /// <summary>Allows an existing agent to authenticate and take work again.</summary>
+    public void Activate() => IsActive = true;
+
+    /// <summary>Changes the email address used to identify the agent.</summary>
+    public void ChangeEmail(string email)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(email);
+        Email = email.Trim();
+    }
+
+    /// <summary>Stores a hash produced by the configured password-hashing service.</summary>
+    public void SetPasswordHash(string passwordHash)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(passwordHash);
+        PasswordHash = passwordHash;
+    }
 }

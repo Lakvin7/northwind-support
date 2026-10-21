@@ -13,6 +13,14 @@ public sealed class AgentRepository(SupportDbContext db) : IAgentRepository
             .Include(a => a.Specializations)
             .FirstOrDefaultAsync(a => a.Id == id, ct);
 
+    public Task<Agent?> GetByEmailAsync(string email, CancellationToken ct)
+    {
+        var normalizedEmail = email.Trim().ToLower();
+
+        return db.Set<Agent>()
+            .FirstOrDefaultAsync(a => a.Email.ToLower() == normalizedEmail, ct);
+    }
+
     /// <summary>
     /// Retrieves active agents and their specializations.
     /// </summary>

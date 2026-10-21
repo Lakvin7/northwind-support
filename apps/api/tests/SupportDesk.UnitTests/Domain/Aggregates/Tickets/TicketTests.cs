@@ -150,6 +150,7 @@ public class TicketTests
             escalatedAtUtc,
             newDueAtUtc,
             "Customer issue requires urgent attention.",
+            "Alex Turner",
             newAgentId: 2);
 
         Assert.Equal(expectedPriority, ticket.Priority);
@@ -163,6 +164,7 @@ public class TicketTests
         Assert.Equal(
             "Customer issue requires urgent attention.",
             history.Reason);
+        Assert.Equal("Alex Turner", history.EscalatedBy);
         Assert.Equal(escalatedAtUtc, history.EscalatedAtUtc);
         Assert.Equal(nowUtc.AddHours(24), history.PreviousDueAtUtc);
         Assert.Equal(newDueAtUtc, history.NewDueAtUtc);
@@ -207,6 +209,7 @@ public class TicketTests
                 escalatedAtUtc,
                 escalatedAtUtc.AddHours(4),
                 "Customer issue required urgent attention.",
+                "Alex Turner",
                 newAgentId: 2));
 
         Assert.Equal(priority, ticket.Priority);
@@ -243,6 +246,7 @@ public class TicketTests
                 escalatedAtUtc,
                 escalatedAtUtc.AddHours(8),
                 reason,
+                "Alex Turner",
                 newAgentId: 2));
 
         Assert.Equal(TicketPriority.Medium, ticket.Priority);

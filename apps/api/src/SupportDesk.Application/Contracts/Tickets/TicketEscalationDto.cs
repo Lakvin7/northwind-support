@@ -11,6 +11,7 @@ public sealed record TicketEscalationDto(
     TicketPriority FromPriority,
     TicketPriority ToPriority,
     string Reason,
+    string? EscalatedBy,
     DateTime EscalatedAtUtc,
     DateTime? PreviousDueAtUtc,
     DateTime NewDueAtUtc,

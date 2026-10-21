@@ -39,6 +39,10 @@ public sealed class TicketEscalationConfiguration
             .HasMaxLength(500)
             .IsRequired();
 
+        // Nullable only so escalation rows created before authentication remain readable.
+        builder.Property(e => e.EscalatedBy)
+            .HasMaxLength(100);
+
         builder.Property(e => e.EscalatedAtUtc)
             .HasColumnType("datetime2(3)");
 

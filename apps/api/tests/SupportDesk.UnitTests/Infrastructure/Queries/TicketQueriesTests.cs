@@ -811,12 +811,14 @@ public sealed class TicketQueriesTests
             firstEscalationAt,
             firstEscalationAt.AddHours(24),
             "First escalation due to increasing urgency.",
+            "Alex Turner",
             null);
 
         ticket.Escalate(
             secondEscalationAt,
             secondEscalationAt.AddHours(8),
             "Second escalation due to unresolved impact.",
+            "Priya Nair",
             null);
 
         await db.SaveChangesAsync();
@@ -839,10 +841,12 @@ public sealed class TicketQueriesTests
         Assert.Equal(TicketPriority.Low, history[0].FromPriority);
         Assert.Equal(TicketPriority.Medium, history[0].ToPriority);
         Assert.Equal(firstEscalationAt, history[0].EscalatedAtUtc);
+        Assert.Equal("Alex Turner", history[0].EscalatedBy);
 
         Assert.Equal(TicketPriority.Medium, history[1].FromPriority);
         Assert.Equal(TicketPriority.High, history[1].ToPriority);
         Assert.Equal(secondEscalationAt, history[1].EscalatedAtUtc);
+        Assert.Equal("Priya Nair", history[1].EscalatedBy);
 
         Assert.All(history, escalation =>
             Assert.Equal(ticket.Id, escalation.TicketId));

@@ -143,6 +143,7 @@ export function EscalationPanel({ ticket, agents, onEscalated }: EscalationPanel
               <thead>
                 <tr>
                   <th scope="col">Escalated</th>
+                  <th scope="col">Escalated by</th>
                   <th scope="col">Priority</th>
                   <th scope="col">Assignment</th>
                   <th scope="col">SLA deadline</th>
@@ -153,6 +154,7 @@ export function EscalationPanel({ ticket, agents, onEscalated }: EscalationPanel
                 {history.data.map((escalation) => (
                   <tr key={escalation.id}>
                     <td>{formatDateTime(escalation.escalatedAtUtc)}</td>
+                    <td>{escalation.escalatedBy ?? 'Not recorded'}</td>
                     <td>
                       {escalation.fromPriority} to {escalation.toPriority}
                     </td>

@@ -20,6 +20,7 @@ public sealed class EscalateTicketCommandHandler(
     ICategoryRepository categories,
     IUnitOfWork unitOfWork,
     IClock clock,
+    ICurrentAgent currentAgent,
     GetTicketQueryHandler getTicket,
     SlaPolicy slaPolicy,
     AgentAssignmentService agentAssignment)
@@ -78,6 +79,7 @@ public sealed class EscalateTicketCommandHandler(
             nowUtc,
             newDueAtUtc,
             request.Reason,
+            currentAgent.Agent.FullName,
             assignment.AgentId);
 
         // The ticket update and new history record are saved together.

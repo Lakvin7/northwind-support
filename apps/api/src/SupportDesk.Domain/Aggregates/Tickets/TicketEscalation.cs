@@ -17,6 +17,7 @@ public sealed class TicketEscalation : Entity
         TicketPriority fromPriority,
         TicketPriority toPriority,
         string reason,
+        string escalatedBy,
         DateTime escalatedAtUtc,
         DateTime? previousDueAtUtc,
         DateTime newDueAtUtc,
@@ -31,10 +32,18 @@ public sealed class TicketEscalation : Entity
                 nameof(reason));
         }
 
+        if (string.IsNullOrWhiteSpace(escalatedBy) || escalatedBy.Trim().Length > 100)
+        {
+            throw new ArgumentException(
+                "The escalation actor must contain between 1 and 100 characters.",
+                nameof(escalatedBy));
+        }
+
         TicketId = ticketId;
         FromPriority = fromPriority;
         ToPriority = toPriority;
         Reason = reason.Trim();
+        EscalatedBy = escalatedBy.Trim();
         EscalatedAtUtc = escalatedAtUtc;
         PreviousDueAtUtc = previousDueAtUtc;
         NewDueAtUtc = newDueAtUtc;
@@ -49,6 +58,9 @@ public sealed class TicketEscalation : Entity
     public TicketPriority ToPriority { get; private set; }
 
     public string Reason { get; private set; } = string.Empty;
+
+    /// <summary>The authenticated agent name captured when the escalation occurred.</summary>
+    public string? EscalatedBy { get; private set; }
 
     public DateTime EscalatedAtUtc { get; private set; }
 

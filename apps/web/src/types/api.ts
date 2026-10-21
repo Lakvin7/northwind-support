@@ -23,6 +23,23 @@ export interface PagedResult<T> {
   totalPages: number;
 }
 
+export interface AuthenticatedAgent {
+  id: number;
+  fullName: string;
+  email: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  accessToken: string;
+  expiresAtUtc: string;
+  agent: AuthenticatedAgent;
+}
+
 export interface CustomerSummary {
   id: number;
   name: string;
@@ -116,6 +133,7 @@ export interface TicketEscalation {
   newDueAtUtc: string;
   previousAgentId: number | null;
   newAgentId: number | null;
+  escalatedBy: string | null;
 }
 
 export interface Agent {

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using SupportDesk.Application.Abstractions;
 using SupportDesk.Domain.Aggregates.Agents;
 using SupportDesk.Domain.Aggregates.Categories;
@@ -17,11 +18,89 @@ namespace SupportDesk.Infrastructure.Data;
 /// Every aggregate is built through its own behaviour. The two historical values no behaviour
 /// produces - a ticket's last update and its due date - are set through EF Core directly.
 /// </remarks>
-public sealed class SupportDbSeeder(SupportDbContext db, IClock clock, ILogger<SupportDbSeeder> logger)
+public sealed class SupportDbSeeder(
+    SupportDbContext db,
+    IClock clock,
+    IPasswordHashService passwords,
+    IOptions<DevelopmentCredentialsOptions> credentials,
+    ILogger<SupportDbSeeder> logger)
 {
     /// <summary>Seeds the database, unless it already has tickets in it.</summary>
     public async Task SeedAsync(CancellationToken ct = default)
     {
+        var developmentCredentials = credentials.Value;
+        var developmentEmail = developmentCredentials.AgentEmail.Trim();
+        var legacyDevelopmentEmail = developmentCredentials.LegacyAgentEmail.Trim();
+        var developmentPassword = developmentCredentials.AgentPassword;
+
+        if (string.IsNullOrWhiteSpace(developmentEmail) ||
+            string.IsNullOrWhiteSpace(legacyDevelopmentEmail) ||
+            string.IsNullOrWhiteSpace(developmentPassword))
+        {
+            throw new InvalidOperationException(
+                "DevelopmentCredentials:AgentEmail, LegacyAgentEmail and AgentPassword are required to seed agent credentials.");
+        }
+
+        var normalizedDevelopmentEmail = developmentEmail.ToLowerInvariant();
+        var normalizedLegacyEmail = legacyDevelopmentEmail.ToLowerInvariant();
+
+        var developmentAgent = await db.Set<Agent>()
+            .FirstOrDefaultAsync(
+                agent => agent.Email.ToLower() == normalizedDevelopmentEmail,
+                ct)
+            ?? await db.Set<Agent>()
+                .FirstOrDefaultAsync(
+                    agent => agent.Email.ToLower() == normalizedLegacyEmail,
+                    ct);
+
+        var developmentAgentChanged = false;
+
+        if (developmentAgent is not null)
+        {
+            if (!string.Equals(
+                    developmentAgent.Email,
+                    developmentEmail,
+                    StringComparison.Ordinal))
+            {
+                developmentAgent.ChangeEmail(developmentEmail);
+                developmentAgentChanged = true;
+            }
+
+            if (!developmentAgent.IsActive)
+            {
+                developmentAgent.Activate();
+                developmentAgentChanged = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(developmentAgent.PasswordHash) ||
+                !passwords.VerifyPassword(
+                    developmentAgent,
+                    developmentAgent.PasswordHash,
+                    developmentPassword))
+            {
+                developmentAgent.SetPasswordHash(
+                    passwords.HashPassword(developmentAgent, developmentPassword));
+                developmentAgentChanged = true;
+            }
+        }
+
+        var existingAgentsWithoutPasswords = await db.Set<Agent>()
+            .Where(agent => agent.PasswordHash == null)
+            .ToListAsync(ct);
+
+        foreach (var agent in existingAgentsWithoutPasswords)
+        {
+            agent.SetPasswordHash(passwords.HashPassword(agent, developmentPassword));
+        }
+
+        if (developmentAgentChanged || existingAgentsWithoutPasswords.Count > 0)
+        {
+            await db.SaveChangesAsync(ct);
+            logger.LogInformation(
+                "Updated the development account and added missing credentials for {Agents} existing agents.",
+                existingAgentsWithoutPasswords.Count);
+        }
+
         if (await db.Set<Ticket>().AnyAsync(ct))
         {
             logger.LogInformation("Seed data already present; skipping.");
@@ -32,7 +111,12 @@ public sealed class SupportDbSeeder(SupportDbContext db, IClock clock, ILogger<S
 
         var categories = SeedCategories();
         var customers = SeedCustomers(now);
-        var agents = SeedAgents(now);
+        var agents = SeedAgents(now, developmentEmail);
+
+        foreach (var agent in agents)
+        {
+            agent.SetPasswordHash(passwords.HashPassword(agent, developmentPassword));
+        }
 
         db.AddRange(categories);
         db.AddRange(customers);
@@ -69,14 +153,14 @@ public sealed class SupportDbSeeder(SupportDbContext db, IClock clock, ILogger<S
         new("Wide World Importers", "support@wideworld.example", "+65 6555 0106", CustomerTier.Premium, now.AddDays(-90))
     ];
 
-    private static List<Agent> SeedAgents(DateTime now)
+    private static List<Agent> SeedAgents(DateTime now, string developmentEmail)
     {
         var yuki = new Agent("Yuki Tanaka", "yuki.tanaka@northwind-support.example", 8, now.AddDays(-600));
         yuki.Deactivate();
 
         return
         [
-            new("Alex Turner", "alex.turner@northwind-support.example", 10, now.AddDays(-500)),
+            new("Alex Turner", developmentEmail, 10, now.AddDays(-500)),
             new("Ben Osei", "ben.osei@northwind-support.example", 8, now.AddDays(-460)),
             new("Priya Nair", "priya.nair@northwind-support.example", 8, now.AddDays(-400)),
             new("Sara Lindqvist", "sara.lindqvist@northwind-support.example", 6, now.AddDays(-280)),

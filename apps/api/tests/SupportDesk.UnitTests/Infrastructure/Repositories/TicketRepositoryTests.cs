@@ -195,6 +195,7 @@ public sealed class TicketRepositoryTests
                 escalatedAtUtc,
                 newDueAtUtc,
                 "Customer requires urgent attention.",
+                "Alex Turner",
                 newAgentId);
 
             await db.SaveChangesAsync();
@@ -224,6 +225,7 @@ public sealed class TicketRepositoryTests
             Assert.Equal(
                 "Customer requires urgent attention.",
                 history.Reason);
+            Assert.Equal("Alex Turner", history.EscalatedBy);
             Assert.Equal(escalatedAtUtc, history.EscalatedAtUtc);
             Assert.Equal(originalDueAtUtc, history.PreviousDueAtUtc);
             Assert.Equal(newDueAtUtc, history.NewDueAtUtc);

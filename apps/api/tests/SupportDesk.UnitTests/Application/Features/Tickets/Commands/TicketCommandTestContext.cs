@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using SupportDesk.Application.Abstractions;
+using SupportDesk.Application.Contracts.Authentication;
 using SupportDesk.Application.Contracts.Tickets;
 using SupportDesk.Application.Features.Tickets.Commands.AssignTicket;
 using SupportDesk.Application.Features.Tickets.Commands.ChangeTicketStatus;
@@ -73,6 +74,13 @@ internal sealed class TicketCommandTestContext
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<int, int>());
 
+        CurrentAgent
+            .SetupGet(current => current.Agent)
+            .Returns(new AuthenticatedAgentDto(
+                1,
+                "Alex Turner",
+                "alex.turner@northwind-support.example"));
+
         var getTicket = new GetTicketQueryHandler(TicketQueries.Object);
 
         var slaPolicy = new SlaPolicy(new SlaOptions
@@ -116,6 +124,7 @@ internal sealed class TicketCommandTestContext
             Categories.Object,
             UnitOfWork.Object,
             Clock,
+            CurrentAgent.Object,
             getTicket,
             slaPolicy,
             agentAssignment);
@@ -130,6 +139,8 @@ internal sealed class TicketCommandTestContext
     public Mock<IAgentRepository> Agents { get; } = new();
 
     public Mock<IUnitOfWork> UnitOfWork { get; } = new();
+
+    public Mock<ICurrentAgent> CurrentAgent { get; } = new();
 
     public Mock<ITicketQueries> TicketQueries { get; } = new();
 

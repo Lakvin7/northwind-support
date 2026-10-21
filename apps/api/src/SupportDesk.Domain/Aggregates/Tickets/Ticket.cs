@@ -130,6 +130,7 @@ public sealed class Ticket : AggregateRoot
         DateTime nowUtc,
         DateTime newDueAtUtc,
         string reason,
+        string escalatedBy,
         int? newAgentId)
     {
         if (!IsOpen)
@@ -152,6 +153,7 @@ public sealed class Ticket : AggregateRoot
             Priority,
             nextPriority,
             reason,
+            escalatedBy,
             nowUtc,
             DueAtUtc,
             newDueAtUtc,
