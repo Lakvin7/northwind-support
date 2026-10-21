@@ -99,4 +99,28 @@ public class TicketTests
         Assert.Null(ticket.AssignedAgentId);
         Assert.Equal(Later, ticket.UpdatedAtUtc);
     }
+
+    [Fact]
+    public void Raise_WithSlaDeadline_StoresDueAtUtc()
+    {
+        var createdAt = new DateTime(
+            2026, 10, 21, 10, 0, 0, DateTimeKind.Utc);
+
+        var dueAt = createdAt.AddHours(4);
+
+        var ticket = Ticket.Raise(
+            "TCK-0099",
+            "System outage",
+            "Customer reports an outage",
+            1,
+            2,
+            TicketPriority.Critical,
+            createdAt,
+            dueAt);
+
+        Assert.Equal(dueAt, ticket.DueAtUtc);
+        Assert.Equal(TicketPriority.Critical, ticket.Priority);
+        Assert.Equal(TicketStatus.New, ticket.Status);
+        Assert.Null(ticket.AssignedAgentId);
+    }
 }

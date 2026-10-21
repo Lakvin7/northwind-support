@@ -3,6 +3,8 @@ using SupportDesk.Application.Abstractions;
 using SupportDesk.Application.Contracts.Tickets;
 using SupportDesk.Application.Exceptions;
 using SupportDesk.Application.Features.Tickets.Queries.GetTicket;
+using SupportDesk.Application.Features.Tickets.Services;
+using SupportDesk.Domain.Aggregates.Customers;
 using SupportDesk.Domain.Aggregates.Tickets;
 using SupportDesk.Domain.Repositories;
 
@@ -18,31 +20,45 @@ public sealed class RaiseTicketCommandHandler(
     IUnitOfWork unitOfWork,
     IClock clock,
     GetTicketQueryHandler getTicket,
+    SlaPolicy slaPolicy,
     ILogger<RaiseTicketCommandHandler> logger)
 {
     /// <exception cref="NotFoundException">The customer or the category does not exist.</exception>
     public async Task<TicketDetailDto> HandleAsync(CreateTicketRequest request, CancellationToken ct)
     {
-        if (!await customers.ExistsAsync(request.CustomerId, ct))
+        var customer = await customers.GetByIdAsync(request.CustomerId, ct);
+        if (customer is null)
         {
             throw new NotFoundException("Customer", request.CustomerId);
         }
 
-        if (!await categories.ExistsAsync(request.CategoryId, ct))
+        var category = await categories.GetByIdAsync(request.CategoryId, ct);
+        if (category is null)
         {
             throw new NotFoundException("Category", request.CategoryId);
         }
 
-        // The response window is still worked out by hand by the team lead, so a new ticket
-        // starts with no due date and no owner.
+        // Categories can override the priority requested by the customer.
+        var effectivePriority = category.ForcesCriticalPriority
+            ? TicketPriority.Critical
+            : request.RequestedPriority ?? TicketPriority.Medium;
+
+        var nowUtc = clock.UtcNow;
+
+        var dueAtUtc = slaPolicy.CalculateDueAtUtc(
+            effectivePriority,
+            customer.Tier == CustomerTier.Premium,
+            nowUtc);
+
         var ticket = Ticket.Raise(
             await tickets.NextReferenceAsync(ct),
             request.Title,
             request.Description,
             request.CustomerId,
             request.CategoryId,
-            request.RequestedPriority ?? TicketPriority.Medium,
-            clock.UtcNow);
+            effectivePriority,
+            nowUtc,
+            dueAtUtc);
 
         await tickets.AddAsync(ticket, ct);
         await unitOfWork.SaveChangesAsync(ct);

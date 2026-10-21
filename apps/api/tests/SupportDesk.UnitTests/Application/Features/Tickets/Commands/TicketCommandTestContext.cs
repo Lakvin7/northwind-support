@@ -5,7 +5,9 @@ using SupportDesk.Application.Features.Tickets.Commands.AssignTicket;
 using SupportDesk.Application.Features.Tickets.Commands.ChangeTicketStatus;
 using SupportDesk.Application.Features.Tickets.Commands.RaiseTicket;
 using SupportDesk.Application.Features.Tickets.Queries.GetTicket;
+using SupportDesk.Application.Features.Tickets.Services;
 using SupportDesk.Domain.Aggregates.Agents;
+using SupportDesk.Domain.Aggregates.Categories;
 using SupportDesk.Domain.Aggregates.Customers;
 using SupportDesk.Domain.Aggregates.Tickets;
 using SupportDesk.Domain.Repositories;
@@ -24,8 +26,24 @@ internal sealed class TicketCommandTestContext
         Customers.Setup(c => c.ExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
+        Customers
+            .Setup(c => c.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Customer(
+                "Contoso Ltd",
+                "support@contoso.example",
+                null,
+                CustomerTier.Standard,
+                Clock.UtcNow));
+
         Categories.Setup(c => c.ExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
+
+        Categories
+            .Setup(c => c.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Category(
+                "General",
+                requiresSpecialist: false,
+                forcesCriticalPriority: false));
 
         Tickets.Setup(t => t.NextReferenceAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync("TCK-0041");
@@ -40,14 +58,29 @@ internal sealed class TicketCommandTestContext
             {
                 Id = 41,
                 Reference = "TCK-0041",
-                Customer = new CustomerContactDto(1, "Contoso Ltd", "support@contoso.example", null, CustomerTier.Premium),
+                Customer = new CustomerContactDto(1, "Contoso Ltd", "support@contoso.example", null, CustomerTier.Standard),
                 Category = new CategoryDto(1, "General", false)
             });
 
         var getTicket = new GetTicketQueryHandler(TicketQueries.Object);
 
+        var slaPolicy = new SlaPolicy(new SlaOptions
+        {
+            BaseWindowHours = new Dictionary<string, double>
+            {
+                ["Low"] = 72,
+                ["Medium"] = 24,
+                ["High"] = 8,
+                ["Critical"] = 4
+            },
+            PremiumCustomerMultiplier = 0.5,
+            MinimumWindowHours = 1,
+            AtRiskThresholdPercent = 25
+        });
+
         RaiseTicket = new RaiseTicketCommandHandler(
             Tickets.Object, Customers.Object, Categories.Object, UnitOfWork.Object, Clock, getTicket,
+            slaPolicy,
             NullLogger<RaiseTicketCommandHandler>.Instance);
 
         ChangeTicketStatus = new ChangeTicketStatusCommandHandler(Tickets.Object, UnitOfWork.Object, Clock, getTicket);
