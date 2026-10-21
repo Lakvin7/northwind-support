@@ -1,5 +1,7 @@
+using Microsoft.EntityFrameworkCore;
 using SupportDesk.Application.Contracts.Tickets;
 using SupportDesk.Application.Exceptions;
+using SupportDesk.Domain.Aggregates.Agents;
 using SupportDesk.Domain.Aggregates.Categories;
 using SupportDesk.Domain.Aggregates.Customers;
 using SupportDesk.Domain.Aggregates.Tickets;
@@ -24,6 +26,7 @@ public class RaiseTicketCommandHandlerTests
         Assert.Equal("TCK-0041", created.Reference);
         Assert.Equal(TicketStatus.New, created.Status);
         Assert.Equal(TicketPriority.High, created.Priority);
+        Assert.Null(created.AssignedAgentId);
         Assert.Equal(FixedClock.DefaultNow, created.CreatedAtUtc);
         Assert.Equal(FixedClock.DefaultNow, created.UpdatedAtUtc);
         context.VerifySaved(Times.Once());
@@ -129,5 +132,63 @@ public class RaiseTicketCommandHandlerTests
         Assert.Contains("Category", exception.Message);
         Assert.Null(context.AddedTicket);
         context.VerifySaved(Times.Never());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenEligibleAgentsExist_AssignsLeastLoadedAgent()
+    {
+        var context = new TicketCommandTestContext();
+
+        var alex = new Agent(
+            "Alex Turner",
+            "alex@example.com",
+            5,
+            context.Clock.UtcNow);
+
+        var jamie = new Agent(
+            "Jamie Smith",
+            "jamie@example.com",
+            5,
+            context.Clock.UtcNow);
+
+        // Give the agents distinct IDs using an in-memory EF Core database.
+        using var connection = new Microsoft.Data.Sqlite.SqliteConnection(
+            "Data Source=:memory:");
+
+        await connection.OpenAsync();
+
+        var options = new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<
+            SupportDesk.Infrastructure.Data.SupportDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        await using var db = new SupportDesk.Infrastructure.Data.SupportDbContext(
+            options);
+
+        await db.Database.EnsureCreatedAsync();
+
+        db.AddRange(alex, jamie);
+        await db.SaveChangesAsync();
+
+        context.Agents
+            .Setup(a => a.GetActiveAgentsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { alex, jamie });
+
+        context.Tickets
+            .Setup(t => t.GetOpenTicketCountsByAgentAsync(
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<int, int>
+            {
+                [alex.Id] = 3,
+                [jamie.Id] = 1
+            });
+
+        await context.RaiseTicket.HandleAsync(
+            Request(),
+            CancellationToken.None);
+
+        Assert.NotNull(context.AddedTicket);
+        Assert.Equal(jamie.Id, context.AddedTicket.AssignedAgentId);
+        context.VerifySaved(Times.Once());
     }
 }

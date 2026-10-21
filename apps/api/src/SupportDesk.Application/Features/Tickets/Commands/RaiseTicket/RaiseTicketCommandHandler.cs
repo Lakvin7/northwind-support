@@ -21,6 +21,7 @@ public sealed class RaiseTicketCommandHandler(
     IClock clock,
     GetTicketQueryHandler getTicket,
     SlaPolicy slaPolicy,
+    AgentAssignmentService agentAssignment,
     ILogger<RaiseTicketCommandHandler> logger)
 {
     /// <exception cref="NotFoundException">The customer or the category does not exist.</exception>
@@ -60,12 +61,27 @@ public sealed class RaiseTicketCommandHandler(
             nowUtc,
             dueAtUtc);
 
+        var assignment = await agentAssignment.SelectAgentAsync(
+            category.Id,
+            category.RequiresSpecialist,
+            ct);
+
+        if (assignment.AgentId is int agentId)
+        {
+            ticket.AssignTo(agentId, nowUtc);
+        }
+
         await tickets.AddAsync(ticket, ct);
         await unitOfWork.SaveChangesAsync(ct);
 
         logger.LogInformation(
-            "Ticket {Reference} raised for customer {CustomerId} in category {CategoryId}.",
-            ticket.Reference, ticket.CustomerId, ticket.CategoryId);
+            "Ticket {Reference} raised for customer {CustomerId} in category {CategoryId}. " +
+            "Assigned agent: {AgentId}. Assignment reason: {AssignmentReason}",
+            ticket.Reference,
+            ticket.CustomerId,
+            ticket.CategoryId,
+            assignment.AgentId,
+            assignment.Reason);
 
         return await getTicket.HandleAsync(ticket.Id, ct);
     }

@@ -8,4 +8,9 @@ namespace SupportDesk.Domain.Repositories;
 public interface IAgentRepository
 {
     Task<Agent?> GetByIdAsync(int id, CancellationToken ct);
+
+    /// <summary>
+    /// Retrieves active agents with their specializations for automatic assignment.
+    /// </summary>
+    Task<IReadOnlyList<Agent>> GetActiveAgentsAsync(CancellationToken ct);
 }

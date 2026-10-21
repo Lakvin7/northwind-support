@@ -62,6 +62,16 @@ internal sealed class TicketCommandTestContext
                 Category = new CategoryDto(1, "General", false)
             });
 
+        // By default, no agents are available for automatic assignment.
+        Agents
+            .Setup(a => a.GetActiveAgentsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<Agent>());
+
+        Tickets
+            .Setup(t => t.GetOpenTicketCountsByAgentAsync(
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<int, int>());
+
         var getTicket = new GetTicketQueryHandler(TicketQueries.Object);
 
         var slaPolicy = new SlaPolicy(new SlaOptions
@@ -78,9 +88,19 @@ internal sealed class TicketCommandTestContext
             AtRiskThresholdPercent = 25
         });
 
+        var agentAssignment = new AgentAssignmentService(
+            Agents.Object,
+            Tickets.Object);
+
         RaiseTicket = new RaiseTicketCommandHandler(
-            Tickets.Object, Customers.Object, Categories.Object, UnitOfWork.Object, Clock, getTicket,
+            Tickets.Object,
+            Customers.Object,
+            Categories.Object,
+            UnitOfWork.Object,
+            Clock,
+            getTicket,
             slaPolicy,
+            agentAssignment,
             NullLogger<RaiseTicketCommandHandler>.Instance);
 
         ChangeTicketStatus = new ChangeTicketStatusCommandHandler(Tickets.Object, UnitOfWork.Object, Clock, getTicket);
