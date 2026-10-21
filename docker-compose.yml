@@ -1,5 +1,7 @@
-# SQL Server for local development only. The password below is a throwaway local
-# placeholder - never commit a real credential.
+# SQL Server and API for local development only. Passwords and keys below are throwaway local
+# placeholders - never commit real credentials.
+name: northwind-support-main
+
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -22,6 +24,25 @@ services:
       timeout: 5s
       retries: 12
       start_period: 20s
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: supportdesk-api
+    ports:
+      - "5080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
+      - ConnectionStrings__Default=Server=sqlserver,1433;Database=SupportDesk;User Id=sa;Password=${MSSQL_SA_PASSWORD:-Local_Dev_Password1};TrustServerCertificate=True;Encrypt=False
+      - Jwt__SigningKey=${Jwt__SigningKey:-LOCAL_ONLY_REPLACE_WITH_AT_LEAST_32_RANDOM_BYTES}
+      - Jwt__Issuer=${Jwt__Issuer:-NorthwindSupportDesk}
+      - Jwt__Audience=${Jwt__Audience:-NorthwindSupportDesk.Web}
+      - Jwt__LifetimeMinutes=${Jwt__LifetimeMinutes:-60}
+      - DevelopmentCredentials__AgentPassword=${DevelopmentCredentials__AgentPassword:-replace-with-local-development-password}
+    depends_on:
+      sqlserver:
+        condition: service_healthy
 
 volumes:
   supportdesk-sql:

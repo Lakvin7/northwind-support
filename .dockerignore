@@ -1,0 +1,42 @@
+# Version control
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Build and package output
+**/bin/
+**/obj/
+**/dist/
+
+# Dependencies
+**/node_modules/
+
+# Frontend application source and build artifacts
+apps/web/
+
+# Test projects (not needed in production API runtime image)
+apps/api/tests/
+
+# Local IDE and editor configurations
+.vscode/
+.idea/
+.vs/
+*.user
+*.suo
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Documentation, specifications, and scratch data
+*.md
+!README.md
+spec/
+db/
+.editorconfig

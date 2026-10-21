@@ -11,6 +11,7 @@ using SupportDesk.Presentation.Extensions;
 using SupportDesk.Presentation.Filters;
 using SupportDesk.Presentation.Middleware;
 using SupportDesk.Presentation.Authentication;
+using SupportDesk.Presentation.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -106,6 +107,9 @@ builder.Services.AddScoped(sp =>
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
+builder.Services.AddHealthChecks()
+    .AddCheck<DatabaseHealthCheck>("Database");
+
 var app = builder.Build();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
@@ -123,6 +127,8 @@ app.UseCors(FrontendCorsPolicy);
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapHealthChecks("/health").AllowAnonymous();
 
 app.MapControllers();
 
