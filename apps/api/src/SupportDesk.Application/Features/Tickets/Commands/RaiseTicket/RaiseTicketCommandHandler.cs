@@ -83,6 +83,10 @@ public sealed class RaiseTicketCommandHandler(
             assignment.AgentId,
             assignment.Reason);
 
-        return await getTicket.HandleAsync(ticket.Id, ct);
+        var result = await getTicket.HandleAsync(ticket.Id, ct);
+
+        result.TriageExplanation = assignment.Reason;
+
+        return result;
     }
 }

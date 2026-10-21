@@ -25,6 +25,12 @@ public sealed class TicketDetailDto
 
     public AgentSummaryDto? AssignedAgent { get; set; }
 
+    /// <summary>
+    /// Explains the initial automatic assignment decision.
+    /// Populated in the ticket-creation response; not persisted.
+    /// </summary>
+    public string? TriageExplanation { get; set; }
+
     public DateTime CreatedAtUtc { get; set; }
 
     public DateTime UpdatedAtUtc { get; set; }

@@ -19,7 +19,13 @@ public class RaiseTicketCommandHandlerTests
     {
         var context = new TicketCommandTestContext();
 
-        await context.RaiseTicket.HandleAsync(Request(TicketPriority.High), CancellationToken.None);
+        var response = await context.RaiseTicket.HandleAsync(
+            Request(TicketPriority.High),
+            CancellationToken.None);
+
+        Assert.Equal(
+            "No eligible agent with available capacity was found.",
+            response.TriageExplanation);
 
         var created = context.AddedTicket;
         Assert.NotNull(created);
@@ -183,12 +189,17 @@ public class RaiseTicketCommandHandlerTests
                 [jamie.Id] = 1
             });
 
-        await context.RaiseTicket.HandleAsync(
+        var response = await context.RaiseTicket.HandleAsync(
             Request(),
             CancellationToken.None);
 
         Assert.NotNull(context.AddedTicket);
         Assert.Equal(jamie.Id, context.AddedTicket.AssignedAgentId);
+
+        Assert.Equal(
+            "Assigned to the eligible agent with the fewest open tickets (1).",
+            response.TriageExplanation);
+
         context.VerifySaved(Times.Once());
     }
 }
